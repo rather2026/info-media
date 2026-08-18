@@ -30,8 +30,13 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files
 .env*
+!.env.example
+
+# temporary test scripts
+test_*.mjs
+check_*.mjs
 
 # vercel
 .vercel
