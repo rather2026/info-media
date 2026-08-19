@@ -11,7 +11,7 @@ export function getOpenRouterModel(): string {
 }
 
 export const isOpenRouterConfigured = Boolean(
-  getOpenRouterApiKey() && 
+  getOpenRouterApiKey() &&
   getOpenRouterApiKey().startsWith('sk-or-') &&
   !getOpenRouterApiKey().includes('xxxx')
 );
@@ -42,42 +42,24 @@ export async function testOpenRouterConnection(modelName?: string) {
       body: JSON.stringify({
         model: model,
         messages: [
-          {
-            role: 'system',
-            content: 'You are an AI news summarization bot. Reply briefly in Arabic with a confirmation message.'
-          },
-          {
-            role: 'user',
-            content: 'اختبار الاتصال السريع: هل النموذج جاهز لتلخيص الأخبار؟'
-          }
+          { role: 'system', content: 'You are an AI news summarization bot. Reply briefly in Arabic.' },
+          { role: 'user', content: 'اختبار الاتصال السريع: هل النموذج جاهز لتلخيص الأخبار؟' }
         ],
-        max_tokens: 150,
+        max_tokens: 100,
         temperature: 0.3,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      return {
-        connected: false,
-        message: `فشل الاتصال بـ OpenRouter (${response.status}): ${errorText}`,
-      };
+      return { connected: false, message: `فشل الاتصال بـ OpenRouter (${response.status}): ${errorText}` };
     }
 
     const data = await response.json();
-    const reply = data.choices?.[0]?.message?.content || 'تم الرد بنجاح بدون محتوى.';
-
-    return {
-      connected: true,
-      modelUsed: model,
-      message: 'تم الاتصال بنموذج OpenRouter بنجاح!',
-      sampleReply: reply,
-    };
+    const reply = data.choices?.[0]?.message?.content || 'تم الرد بنجاح.';
+    return { connected: true, modelUsed: model, message: 'تم الاتصال بنموذج OpenRouter بنجاح!', sampleReply: reply };
   } catch (err: any) {
-    return {
-      connected: false,
-      message: `خطأ في استدعاء OpenRouter: ${err.message || 'Unknown network error'}`,
-    };
+    return { connected: false, message: `خطأ في استدعاء OpenRouter: ${err.message || 'Unknown network error'}` };
   }
 }
 
@@ -89,7 +71,133 @@ interface SummarizeOptions {
 }
 
 /**
- * Main AI Summarizer using OpenRouter
+ * Call the AI for a SINGLE language — returns plain text directly (no JSON wrapping).
+ * This eliminates all JSON truncation/parsing issues.
+ */
+async function generateSingleLanguageSummary(
+  newsContext: string,
+  lang: 'ar' | 'fr' | 'en',
+  apiKey: string,
+  selectedModel: string,
+  timeSlot: string
+): Promise<string> {
+
+  const langInstructions: Record<string, string> = {
+    ar: `أنت ملخص إخباري متخصص في أخبار منطقة الساحل الإفريقي (مالي، بوركينا فاسو، النيجر، موريتانيا).
+
+اكتب ملخصاً إخبارياً نقياً ومباشراً بالعربية الفصحى الصحفية.
+
+القواعد الإلزامية:
+1. كل نقطة تبدأ بـ 🔹 وتنتهي بـ [المصدر: @handle] — كل نقطة، بدون استثناء.
+2. استخدم عناوين ثريمة بين **النجمتين** لتجميع الأخبار حسب الموضوع أو البلد.
+3. المصدر موجود في نهاية كل خبر بعد " — " — استخدمه كما هو تماماً.
+4. بلا توصيات، بلا تحليلات في النهاية.
+
+مثال الشكل الصحيح:
+**أخبار مالي**
+🔹 اشتباكات بين قوات JNIM والجيش في مقاطعة كايا. [المصدر: @SahelAlerte]
+🔹 انحياز فصيل إمغاد إلى جبهة تحرير أزواد FLA. [المصدر: @Oumar_Alansari]
+
+أرجع النص المنسق مباشرة، بدون أي مقدمات أو ملاحظات.`,
+
+    fr: `Tu es un résumé de presse spécialisé sur l'actualité du Sahel (Mali, Burkina Faso, Niger, Mauritanie).
+
+Rédige un résumé journalistique direct en français.
+
+Règles absolues :
+1. Chaque point commence par 🔹 et se termine par [Source: @handle] — chaque point, sans exception.
+2. Groupe les nouvelles sous des titres thématiques en **gras**.
+3. La source est à la fin de chaque item après " — " — utilise-la telle quelle.
+4. Pas de recommandations, pas de conclusions.
+
+Exemple du format correct :
+**Actualités Mali**
+🔹 Affrontements entre le JNIM et l'armée dans la province de Kaya. [Source: @SahelAlerte]
+🔹 Une faction Imghad rejoint le FLA. [Source: @Oumar_Alansari]
+
+Retourne uniquement le texte formaté, sans introduction ni commentaire.`,
+
+    en: `You are a Sahel news digest specialist (Mali, Burkina Faso, Niger, Mauritania).
+
+Write a direct journalistic summary in English.
+
+Absolute rules:
+1. Every bullet starts with 🔹 and ends with [Source: @handle] — every single bullet, no exceptions.
+2. Group news under **bold** thematic headings.
+3. Source is at end of each item after " — " — use it exactly as written.
+4. No recommendations, no conclusions.
+
+Example of correct format:
+**Mali Updates**
+🔹 Clashes between JNIM forces and the army in Kaya province. [Source: @SahelAlerte]
+🔹 An Imghad faction joins the FLA. [Source: @Oumar_Alansari]
+
+Return only the formatted text, no preamble or commentary.`,
+  };
+
+  const response = await fetch(OPENROUTER_API_URL, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': process.env.OPENROUTER_SITE_URL || 'http://localhost:3000',
+      'X-Title': 'Sahel News Digest',
+    },
+    body: JSON.stringify({
+      model: selectedModel,
+      messages: [
+        { role: 'system', content: langInstructions[lang] },
+        {
+          role: 'user',
+          content: `Time: ${timeSlot}\n\nNEWS ITEMS (source after " — "):\n---\n${newsContext}\n---\n\nWrite the formatted digest now. Every 🔹 bullet MUST end with [${lang === 'ar' ? 'المصدر' : 'Source'}: @handle].`
+        }
+      ],
+      temperature: 0.2,
+      max_tokens: 3000,
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`OpenRouter API error (${response.status}): ${errText}`);
+  }
+
+  const jsonResult = await response.json();
+  const text = jsonResult.choices?.[0]?.message?.content || '';
+
+  // Check if the model accidentally returned JSON instead of plain text
+  const trimmed = text.trim();
+  if (trimmed.startsWith('{')) {
+    const keyMap: Record<string, string> = { ar: 'summary_ar', fr: 'summary_fr', en: 'summary_en' };
+    try {
+      const parsed = JSON.parse(trimmed);
+      return parsed[keyMap[lang]] || parsed.summary_ar || text;
+    } catch {
+      // Extract the field with regex
+      const key = keyMap[lang];
+      const regex = new RegExp(`"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)`,'s');
+      const m = trimmed.match(regex);
+      if (m) return m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').trim();
+    }
+  }
+
+  return text.trim();
+}
+
+/**
+ * Extract a short headline from the Arabic summary
+ */
+function extractTitle(summaryAr: string): string {
+  // Try to get first heading or first bullet's topic
+  const headingMatch = summaryAr.match(/\*\*([^*]+)\*\*/);
+  if (headingMatch) return headingMatch[1].trim();
+  const bulletMatch = summaryAr.match(/🔹\s*([^[.\n]{10,60})/);
+  if (bulletMatch) return bulletMatch[1].trim();
+  return 'نشرة الأخبار الموجزة';
+}
+
+/**
+ * Main AI Summarizer using OpenRouter — generates ONE language at a time (3× smaller, no JSON truncation)
  */
 export async function generateNewsDigest({
   posts,
@@ -106,9 +214,7 @@ export async function generateNewsDigest({
   const apiKey = getOpenRouterApiKey();
   const selectedModel = model || getOpenRouterModel();
 
-  if (!apiKey) {
-    throw new Error('OPENROUTER_API_KEY is not configured.');
-  }
+  if (!apiKey) throw new Error('OPENROUTER_API_KEY is not configured.');
 
   if (posts.length === 0) {
     return {
@@ -120,144 +226,63 @@ export async function generateNewsDigest({
     };
   }
 
-  // Format raw posts — source handle is embedded INSIDE the content so the AI cannot miss it
+  // Format raw posts — source handle embedded directly IN the content text
   const newsContext = posts
     .map((p, index) => {
       const handle = p.author || 'مصدر مجهول';
-      // Append source at end of content text itself — not just as metadata
-      const contentWithSource = `${p.content.trim()} — ${handle}`;
-      return `[${index + 1}] ${contentWithSource}`;
+      return `[${index + 1}] ${p.content.trim()} — ${handle}`;
     })
     .join('\n\n');
 
-  const systemPrompt = `
-You are an elite multilingual news summarizer. Your STRICT job is to synthesize news from the Sahel region (Mali, Burkina Faso, Niger, Mauritania) in journalistic style.
+  // Determine which languages to generate
+  const langsToGenerate: Array<'ar' | 'fr' | 'en'> =
+    language === 'dual_ar_fr' ? ['ar', 'fr'] :
+    language === 'ar' ? ['ar'] :
+    language === 'fr' ? ['fr'] :
+    language === 'en' ? ['en'] :
+    ['ar'];
 
-ABSOLUTE RULES — NO EXCEPTIONS:
-1. Every single bullet point MUST end with the exact source attribution in brackets: [المصدر: @handle]
-2. The source handle is embedded at the end of each raw news item (after " — "). Use it EXACTLY as written.
-3. NEVER write a bullet without its source citation. A bullet without a source is INVALID.
-4. Group related news under thematic bold headings (** ... **).
-5. Use bullet points: 🔹 for main points, • for sub-points.
-6. No recommendations, no analysis, no conclusions paragraph.
+  const results: Record<string, string> = {};
 
-EXAMPLE OF CORRECT OUTPUT FORMAT (summary_ar):
-🔹 اشتباكات بين قوات JNIM والجيش في مقاطعة كايا بعد هجوم على ثكنة عسكرية. [المصدر: @SahelAlerte]
-🔹 انحياز فصيل إمغاد إلى جبهة تحرير أزواد FLA. [المصدر: @Oumar_Alansari]
-
-EXAMPLE OF CORRECT OUTPUT FORMAT (summary_fr):
-🔹 Affrontements entre le JNIM et l'armée dans la province de Kaya après une attaque contre une caserne. [Source: @SahelAlerte]
-🔹 Une faction Imghad rejoint le Front de Libération de l'Azawad FLA. [Source: @Oumar_Alansari]
-
-Output ONLY valid JSON:
-{
-  "title": "Short compelling headline",
-  "summary_ar": "Full Arabic summary — every 🔹 bullet MUST end with [المصدر: @handle]",
-  "summary_fr": "Full French summary — every 🔹 bullet MUST end with [Source: @handle]",
-  "summary_en": "Full English summary — every 🔹 bullet MUST end with [Source: @handle]"
-}
-`;
-
-  const userPrompt = `
-Time Period: ${timeSlot}
-Total raw news items: ${posts.length}
-
-RAW NEWS ITEMS (each item ends with " — @source_handle"):
----
-${newsContext}
----
-
-Generate the JSON digest now. Remember: EVERY bullet point must end with [المصدر: @handle]. No exceptions.
-`;
-
-  const response = await fetch(OPENROUTER_API_URL, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': process.env.OPENROUTER_SITE_URL || 'http://localhost:3000',
-      'X-Title': 'AI News Pulse Multi-Channel Dispatcher',
-    },
-    body: JSON.stringify({
-      model: selectedModel,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      temperature: 0.3,
-      max_tokens: 6000,
-    }),
-  });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`OpenRouter API error (${response.status}): ${errText}`);
-  }
-
-  const jsonResult = await response.json();
-  const rawText = jsonResult.choices?.[0]?.message?.content || '{}';
-
-  // Robust field extractor — works even when JSON is truncated
-  const extractField = (text: string, key: string): string => {
-    // Try to find "key": "value" where value may span multiple lines
-    const regex = new RegExp(`"${key}"\\s*:\\s*"((?:[^\\"]|\\\\.)*)`, 's');
-    const m = text.match(regex);
-    if (!m) return '';
-    // Unescape common sequences
-    return m[1]
-      .replace(/\\n/g, '\n')
-      .replace(/\\t/g, '\t')
-      .replace(/\\"/g, '"')
-      .replace(/\\\\/g, '\\')
-      .trim();
-  };
-
-  let parsed: any = null;
-  const cleaned = rawText.trim().replace(/^```json\s*/i, '').replace(/\s*```$/i, '');
-
-  try {
-    // First try standard parse (works when response is complete)
-    parsed = JSON.parse(cleaned);
-  } catch {
-    // JSON is truncated — extract each field individually via regex
-    console.warn('[openrouter] JSON truncated, using regex field extraction');
-    const title = extractField(cleaned, 'title');
-    const summaryAr = extractField(cleaned, 'summary_ar');
-    const summaryFr = extractField(cleaned, 'summary_fr');
-    const summaryEn = extractField(cleaned, 'summary_en');
-
-    if (!summaryAr && !summaryFr && !summaryEn) {
-      // Nothing extractable — return raw as fallback
-      console.error('[openrouter] Could not extract any field from response');
-      return {
-        title: title || 'نشرة إخبارية',
-        summaryAr: cleaned,
-        summaryFr: cleaned,
-        summaryEn: cleaned,
-        formattedOutput: cleaned,
-      };
+  // Generate each language separately (smaller prompts = no truncation)
+  for (const lang of langsToGenerate) {
+    try {
+      results[lang] = await generateSingleLanguageSummary(
+        newsContext, lang, apiKey, selectedModel, timeSlot
+      );
+    } catch (err: any) {
+      console.error(`[openrouter] Failed to generate ${lang} summary:`, err.message);
+      results[lang] = '';
     }
-
-    parsed = { title, summary_ar: summaryAr, summary_fr: summaryFr, summary_en: summaryEn };
   }
+
+  // Always have Arabic (generate if missing)
+  if (!results.ar) {
+    try {
+      results.ar = await generateSingleLanguageSummary(newsContext, 'ar', apiKey, selectedModel, timeSlot);
+    } catch {
+      results.ar = 'تعذّر توليد الملخص العربي.';
+    }
+  }
+
+  const summaryAr = results.ar || '';
+  const summaryFr = results.fr || '';
+  const summaryEn = results.en || '';
+
+  const title = extractTitle(summaryAr);
 
   let formattedOutput = '';
   if (language === 'ar') {
-    formattedOutput = parsed.summary_ar || parsed.summary_en || '';
+    formattedOutput = summaryAr;
   } else if (language === 'fr') {
-    formattedOutput = parsed.summary_fr || parsed.summary_en || '';
+    formattedOutput = summaryFr || summaryAr;
+  } else if (language === 'en') {
+    formattedOutput = summaryEn || summaryAr;
   } else if (language === 'dual_ar_fr') {
-    formattedOutput = `${parsed.summary_ar}\n\n═══════════════════════\n🇫🇷 RÉSUMÉ EN FRANÇAIS\n═══════════════════════\n\n${parsed.summary_fr}`;
+    formattedOutput = `${summaryAr}\n\n═══════════════════════\n🇫🇷 RÉSUMÉ EN FRANÇAIS\n═══════════════════════\n\n${summaryFr}`;
   } else {
-    formattedOutput = parsed.summary_en || parsed.summary_ar || '';
+    formattedOutput = summaryAr;
   }
 
-  return {
-    title: parsed.title || 'نشرة الأخبار الموجزة',
-    summaryAr: parsed.summary_ar || '',
-    summaryFr: parsed.summary_fr || '',
-    summaryEn: parsed.summary_en || '',
-    formattedOutput: formattedOutput,
-  };
+  return { title, summaryAr, summaryFr, summaryEn, formattedOutput };
 }
