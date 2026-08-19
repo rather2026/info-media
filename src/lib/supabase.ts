@@ -143,9 +143,10 @@ export async function getUnprocessedPosts(limit = 60, maxAgeHours = 48): Promise
 }
 
 /**
- * Delete all raw_posts older than N hours (auto cleanup — called after each pipeline run)
+ * Delete all raw_posts older than N hours (auto cleanup — default: 720h = 30 days = 1 month)
+ * Digests and delivery logs remain permanently stored.
  */
-export async function cleanupOldPosts(maxAgeHours = 48): Promise<number> {
+export async function cleanupOldPosts(maxAgeHours = 720): Promise<number> {
   if (!supabase) return 0;
 
   const cutoff = new Date();

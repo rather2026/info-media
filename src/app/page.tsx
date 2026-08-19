@@ -26,7 +26,10 @@ import {
   ArrowRight,
   ShieldCheck,
   TrendingUp,
+  LogOut,
+  Shield,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { Source, Digest, DeliveryLog, SupportedLanguage } from '@/lib/types';
 
 export default function Dashboard() {
@@ -43,6 +46,7 @@ export default function Dashboard() {
 
   // Digest Generation Form State
   const [targetLanguage, setTargetLanguage] = useState<SupportedLanguage>('ar');
+  const [previewLang, setPreviewLang] = useState<'ar' | 'fr' | 'en'>('ar');
   const [selectedModel, setSelectedModel] = useState('google/gemini-2.5-flash-lite');
   const [timeSlot, setTimeSlot] = useState<'morning' | 'afternoon' | 'evening' | 'manual'>('manual');
   const [currentPreviewDigest, setCurrentPreviewDigest] = useState<any>(null);
@@ -222,6 +226,18 @@ export default function Dashboard() {
     }
   };
 
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      router.push('/login');
+      router.refresh();
+    } catch (e) {
+      window.location.href = '/login';
+    }
+  };
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
@@ -248,41 +264,56 @@ export default function Dashboard() {
       <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-8 border-b border-slate-800/80">
         <div>
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-gradient-to-tr from-cyan-500 to-indigo-600 shadow-lg shadow-cyan-500/20">
-              <Bot className="w-7 h-7 text-white" />
+            <div className="p-2.5 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/20">
+              <Shield className="w-7 h-7 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-2">
-                AI News Pulse
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 font-medium">
-                  {selectedModel.includes('2.5') ? 'Gemini 2.5 Flash Lite' : selectedModel}
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-2">
+                  منظومة الرصد والاستخبارات
+                </h1>
+                <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-medium flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  إقليم الساحل الإفريقي
                 </span>
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-                منصة الرصد والتلخيص الذكي للأخبار عبر OpenRouter وإرسالها لـ Telegram و WhatsApp
+                <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-medium">
+                  🇲🇱 مالي • 🇧🇫 بوركينا • 🇳🇪 النيجر • 🇲🇷 موريتانيا
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-400 mt-1">
+                الرصد الأمني والسياسي الاستراتيجي لمنطقة الساحل • إرسال آلي لـ Telegram و WhatsApp
               </p>
             </div>
           </div>
         </div>
 
         {/* Global Action Buttons */}
-        <div className="flex items-center gap-2.5 w-full md:w-auto">
+        <div className="flex items-center gap-2.5 w-full md:w-auto flex-wrap">
           <button
             onClick={() => handleRunTests('all')}
             disabled={isTesting}
-            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-200 text-xs sm:text-sm font-semibold transition-all shadow-md active:scale-95"
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-200 text-xs sm:text-sm font-semibold transition-all shadow-md active:scale-95 cursor-pointer"
           >
-            <Activity className={`w-4 h-4 text-cyan-400 ${isTesting ? 'animate-spin' : ''}`} />
-            فحص الاتصالات (Health Check)
+            <Activity className={`w-4 h-4 text-emerald-400 ${isTesting ? 'animate-spin' : ''}`} />
+            فحص الاتصالات
           </button>
 
           <button
             onClick={handleGenerateDigest}
             disabled={isGenerating}
-            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 via-indigo-600 to-blue-600 hover:opacity-95 text-white text-xs sm:text-sm font-bold shadow-lg shadow-cyan-500/25 transition-all active:scale-95 disabled:opacity-50"
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-emerald-500/25 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             <Sparkles className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`} />
-            {isGenerating ? 'جاري التلخيص والإرسال...' : 'توليد وإرسال الآن'}
+            {isGenerating ? 'جاري الرصد والتحليل...' : 'توليد وإرسال النشرة'}
+          </button>
+
+          <button
+            onClick={handleLogout}
+            title="تسجيل الخروج"
+            className="p-2.5 rounded-xl bg-rose-950/30 hover:bg-rose-900/50 border border-rose-800/40 text-rose-300 hover:text-rose-100 text-xs font-semibold transition shadow-md active:scale-95 cursor-pointer flex items-center gap-1.5"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline">خروج</span>
           </button>
         </div>
       </header>
@@ -499,69 +530,197 @@ export default function Dashboard() {
 
           {/* Live Preview Panel */}
           <div className="lg:col-span-7">
-            <div className="glass-card p-5 sm:p-6 rounded-2xl flex flex-col h-full min-h-[500px]">
-              <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+            <div className="glass-card p-5 sm:p-6 rounded-2xl flex flex-col h-full min-h-[520px]">
+              {/* Header with Language Tabs and Copy */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
                 <div className="flex items-center gap-2">
-                  <Bot className="w-5 h-5 text-cyan-400" />
-                  <h2 className="text-base font-bold text-white">معاينة النشرة (Live Digest Preview)</h2>
+                  <Shield className="w-5 h-5 text-emerald-400" />
+                  <h2 className="text-sm sm:text-base font-bold text-white">معاينة الإيجاز الاستخباري</h2>
                 </div>
+
                 {currentPreviewDigest && (
-                  <button
-                    onClick={() =>
-                      copyToClipboard(
-                        targetLanguage === 'fr'
-                          ? currentPreviewDigest.summary_fr || currentPreviewDigest.summary_ar
-                          : currentPreviewDigest.summary_ar || currentPreviewDigest.summary_fr
-                      )
-                    }
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition-all"
-                  >
-                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    {copied ? 'تم النسخ' : 'نسخ النص'}
-                  </button>
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                    {/* Language Switcher Tabs */}
+                    <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl p-1 text-[11px] font-medium">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewLang('ar')}
+                        className={`px-2.5 py-1 rounded-lg transition ${
+                          previewLang === 'ar'
+                            ? 'bg-emerald-600 text-white font-bold shadow'
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        العربية 🇩🇿
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewLang('fr')}
+                        className={`px-2.5 py-1 rounded-lg transition ${
+                          previewLang === 'fr'
+                            ? 'bg-emerald-600 text-white font-bold shadow'
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        Français 🇫🇷
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewLang('en')}
+                        className={`px-2.5 py-1 rounded-lg transition ${
+                          previewLang === 'en'
+                            ? 'bg-emerald-600 text-white font-bold shadow'
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        English 🌐
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        const text =
+                          previewLang === 'ar'
+                            ? currentPreviewDigest.summary_ar
+                            : previewLang === 'fr'
+                            ? currentPreviewDigest.summary_fr
+                            : currentPreviewDigest.summary_en || currentPreviewDigest.summary_ar;
+                        copyToClipboard(text || '');
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition-all cursor-pointer shadow"
+                    >
+                      {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copied ? 'تم النسخ' : 'نسخ'}</span>
+                    </button>
+                  </div>
                 )}
               </div>
 
               {/* Preview Body */}
               <div className="flex-1 mt-4">
                 {isGenerating ? (
-                  <div className="h-full min-h-[350px] flex flex-col items-center justify-center text-center space-y-4">
+                  <div className="h-full min-h-[380px] flex flex-col items-center justify-center text-center space-y-4">
                     <div className="relative">
-                      <div className="w-16 h-16 rounded-full border-4 border-cyan-500/20 border-t-cyan-400 animate-spin" />
-                      <Sparkles className="w-6 h-6 text-cyan-400 absolute inset-0 m-auto animate-pulse" />
+                      <div className="w-16 h-16 rounded-full border-4 border-emerald-500/20 border-t-emerald-400 animate-spin" />
+                      <Sparkles className="w-6 h-6 text-emerald-400 absolute inset-0 m-auto animate-pulse" />
                     </div>
                     <div className="space-y-1">
-                      <h3 className="text-sm font-bold text-white">جاري جمع الأخبار وصياغة التقرير...</h3>
+                      <h3 className="text-sm font-bold text-white">جاري الرصد والتحليل الاستخباري...</h3>
                       <p className="text-xs text-slate-400">
-                        استدعاء {selectedModel} لتلخيص وتحليل المنشورات
+                        معالجة المواد وتصنيف الأولويات عبر {selectedModel}
                       </p>
                     </div>
                   </div>
                 ) : currentPreviewDigest ? (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {/* Digest Metadata Header */}
-                    <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-300">
-                      <span className="font-bold text-cyan-400">{currentPreviewDigest.title}</span>
-                      <span className="text-slate-600">•</span>
-                      <span>{new Date(currentPreviewDigest.created_at).toLocaleTimeString('ar-SA')}</span>
-                      <span className="text-slate-600">•</span>
-                      <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[10px]">
-                        {currentPreviewDigest.raw_posts_count || 0} خبر معالج
-                      </span>
+                    <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                        <span className="font-bold text-emerald-300">{currentPreviewDigest.title}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-slate-400 text-[11px]">
+                        <span>{new Date(currentPreviewDigest.created_at).toLocaleTimeString('ar-DZ')}</span>
+                        <span>•</span>
+                        <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[10px]">
+                          {currentPreviewDigest.raw_posts_count || 0} مادة مرصودة
+                        </span>
+                      </div>
                     </div>
 
-                    {/* Formatted Content */}
-                    <div className="p-4 sm:p-5 rounded-xl bg-slate-950/80 border border-slate-800/80 font-sans text-xs sm:text-sm leading-relaxed text-slate-200 whitespace-pre-wrap max-h-[500px] overflow-y-auto">
-                      {targetLanguage === 'fr'
-                        ? currentPreviewDigest.summary_fr || currentPreviewDigest.summary_ar
-                        : currentPreviewDigest.summary_ar || currentPreviewDigest.summary_fr}
+                    {/* Formatted Content - Intelligence Dossier */}
+                    <div
+                      className="p-5 rounded-xl bg-slate-950 border border-slate-800/90 text-xs sm:text-[13px] leading-loose text-slate-200 max-h-[520px] overflow-y-auto shadow-inner select-text border-r-2 border-r-emerald-500"
+                      dir={previewLang === 'ar' ? 'rtl' : 'ltr'}
+                    >
+                      {(() => {
+                        let raw =
+                          previewLang === 'ar'
+                            ? currentPreviewDigest.summary_ar
+                            : previewLang === 'fr'
+                            ? currentPreviewDigest.summary_fr || currentPreviewDigest.summary_ar
+                            : currentPreviewDigest.summary_en || currentPreviewDigest.summary_ar;
+
+                        if (!raw) return null;
+
+                        // If the content looks like raw JSON (old failed parse stored as rawText),
+                        // attempt to extract the correct field via regex
+                        const trimmed = raw.trim();
+                        if (trimmed.startsWith('{') || trimmed.startsWith('```')) {
+                          const extractKey = previewLang === 'ar' ? 'summary_ar' : previewLang === 'fr' ? 'summary_fr' : 'summary_en';
+                          const regex = new RegExp(`"${extractKey}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)`, 's');
+                          const m = trimmed.match(regex);
+                          if (m) {
+                            raw = m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\').trim();
+                          }
+                        }
+
+                        // Resolve any remaining literal \n escape sequences
+                        const resolved = raw.replace(/\\n/g, '\n');
+                        const lines = resolved.split('\n');
+
+                        const renderInline = (text: string) => {
+                          const parts = text.split(/(\*\*[^*]+\*\*)/g);
+                          return parts.map((part, j) => {
+                            if (/^\*\*[^*]+\*\*$/.test(part)) {
+                              return <strong key={j} className="text-white font-semibold">{part.replace(/\*\*/g, '')}</strong>;
+                            }
+                            return <span key={j}>{part}</span>;
+                          });
+                        };
+
+                        return lines.map((line: string, i: number) => {
+                          // Section headers: ### Title
+                          const headerMatch = line.match(/^#{1,4}\s*(.*)/);
+                          if (headerMatch) {
+                            const text = headerMatch[1].replace(/\*\*/g, '');
+                            return (
+                              <div key={i} className="mt-4 mb-1 font-bold text-emerald-300 text-sm border-b border-emerald-900 pb-1">
+                                {text}
+                              </div>
+                            );
+                          }
+
+                          // Bold-only lines **...**
+                          if (/^\*\*[^*]+\*\*$/.test(line.trim())) {
+                            return (
+                              <div key={i} className="mt-3 mb-1 font-bold text-emerald-200">
+                                {line.trim().replace(/\*\*/g, '')}
+                              </div>
+                            );
+                          }
+
+                          // Empty line spacer
+                          if (!line.trim()) return <div key={i} className="h-2" />;
+
+                          // Bullet points
+                          const bulletMatch = line.match(/^(\s*)([\*\-•🔹])\s+(.*)/);
+                          if (bulletMatch) {
+                            const indent = bulletMatch[1].length > 0;
+                            return (
+                              <div key={i} className={`flex gap-2 ${indent ? 'ml-4 mr-4' : ''} py-0.5`}>
+                                <span className="text-emerald-400 mt-0.5 flex-shrink-0">
+                                  {bulletMatch[2] === '🔹' ? '🔹' : '•'}
+                                </span>
+                                <span className="flex-1 font-mono">{renderInline(bulletMatch[3])}</span>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div key={i} className="py-0.5 font-mono">
+                              {renderInline(line)}
+                            </div>
+                          );
+                        });
+                      })()}
                     </div>
                   </div>
                 ) : (
-                  <div className="h-full min-h-[350px] flex flex-col items-center justify-center text-center text-slate-500 space-y-3">
-                    <Sparkles className="w-12 h-12 text-slate-700" />
+                  <div className="h-full min-h-[380px] flex flex-col items-center justify-center text-center text-slate-500 space-y-3">
+                    <Shield className="w-12 h-12 text-slate-700" />
                     <p className="text-xs sm:text-sm max-w-sm">
-                      لم يتم توليد أي نشرة بعد. اضغط على زر "توليد النشرة وإرسالها فوراً" للبدء في سحب وتلخيص الأخبار.
+                      لم يتم توليد أي إيجاز استخباري بعد. اضغط على زر "توليد وإرسال النشرة" لبدء سحب وتلخيص الأخبار.
                     </p>
                   </div>
                 )}

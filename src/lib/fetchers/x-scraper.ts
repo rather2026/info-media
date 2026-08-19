@@ -97,21 +97,23 @@ async function fetchViaNitter(
   handle: string
 ): Promise<Omit<RawPost, 'id' | 'created_at'>[]> {
   const nitterInstances = [
+    `https://nitter.net/${handle}/rss`,
+    `https://nitter.tiekoetter.com/${handle}/rss`,
+    `https://nitter.mint.lgbt/${handle}/rss`,
+    `https://nitter.d420.de/${handle}/rss`,
     `https://nitter.poast.org/${handle}/rss`,
-    `https://nitter.privacydev.net/${handle}/rss`,
-    `https://rsshub.app/twitter/user/${handle}`,
   ];
 
   for (const instanceUrl of nitterInstances) {
     try {
       const feed = await rssParser.parseURL(instanceUrl);
       if (feed.items && feed.items.length > 0) {
-        return feed.items.slice(0, 8).map((item) => {
+        return feed.items.slice(0, 15).map((item) => {
           const rawContent = item.contentSnippet || item.content || item.title || '';
           const cleanContent = rawContent.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
           return {
             source_id: source.id,
-            external_id: item.guid || item.link || `x-${handle}-${item.title?.slice(0, 20)}`,
+            external_id: item.guid || item.link || `x-${handle}-${item.title?.slice(0, 30)}`,
             author: `@${handle}`,
             content: cleanContent,
             url: item.link || `https://x.com/${handle}`,

@@ -179,7 +179,7 @@ export async function runNewsDigestPipeline(options: RunPipelineOptions = {}): P
     }
   }
 
-  // Step 8: Mark processed posts & Auto cleanup old posts (> 48h)
+  // Step 8: Mark processed posts & Auto cleanup old raw reference posts (> 30 days / 720h)
   if (unprocessedPosts.length > 0) {
     try {
       await markPostsAsProcessed(unprocessedPosts.map((p) => p.id));
@@ -188,16 +188,16 @@ export async function runNewsDigestPipeline(options: RunPipelineOptions = {}): P
     }
   }
 
-  // Auto cleanup database items older than 48 hours
+  // Auto cleanup database raw posts older than 30 days (720 hours) to prevent database bloat
   try {
-    await cleanupOldPosts(newsAgeHours);
+    await cleanupOldPosts(720); // 30 days retention for reference news
   } catch (err: any) {
     console.warn('Auto cleanup warning:', err.message);
   }
 
   return {
     success: true,
-    message: `تم توليد النشرة الإخبارية بنجاح (${postsToSummarize.length} منشور خلال آخر 48 ساعة)`,
+    message: `تم توليد النشرة الاستخباراتية الاستراتيجية بنجاح (${postsToSummarize.length} مادة مرصودة)`,
     fetchedPostsCount: postsToSummarize.length,
     digest: savedDigest,
     telegramSent,
