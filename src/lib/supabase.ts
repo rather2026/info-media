@@ -143,6 +143,27 @@ export async function getUnprocessedPosts(limit = 60, maxAgeHours = 48): Promise
 }
 
 /**
+ * Get most recent posts from the last N hours regardless of processed status
+ * Used as fallback for manual dashboard runs so user is never stuck with "0 posts"
+ */
+export async function getRecentPosts(limit = 40, maxAgeHours = 48): Promise<RawPost[]> {
+  if (!supabase) return [];
+
+  const since = new Date();
+  since.setHours(since.getHours() - maxAgeHours);
+
+  const { data, error } = await supabase
+    .from('raw_posts')
+    .select('*')
+    .gte('published_at', since.toISOString())
+    .order('published_at', { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return data || [];
+}
+
+/**
  * Delete all raw_posts older than N hours (auto cleanup — default: 720h = 30 days = 1 month)
  * Digests and delivery logs remain permanently stored.
  */

@@ -1,4 +1,4 @@
-import { getActiveSources, insertRawPosts, getUnprocessedPosts, saveDigest, logDelivery, markPostsAsProcessed, getAppSettings, cleanupOldPosts } from './supabase';
+import { getActiveSources, insertRawPosts, getUnprocessedPosts, getRecentPosts, saveDigest, logDelivery, markPostsAsProcessed, getAppSettings, cleanupOldPosts } from './supabase';
 import { fetchXTweets } from './fetchers/x-scraper';
 import { fetchRssFeed } from './fetchers/rss-scraper';
 import { generateNewsDigest } from './openrouter';
@@ -30,23 +30,39 @@ export interface PipelineResult {
  */
 export async function runNewsDigestPipeline(options: RunPipelineOptions = {}): Promise<PipelineResult> {
   const errors: string[] = [];
-  const timeSlot = options.timeSlot || 'manual';
   const settings = await getAppSettings();
+
   const targetLanguage = options.overrideLanguage || settings.default_language || 'ar';
   const targetModel = options.overrideModel || settings.ai_model || 'google/gemini-2.5-flash-lite';
+  const timeSlot = options.timeSlot || 'manual';
 
   console.log(`[Pipeline] Starting run - TimeSlot: ${timeSlot}, Lang: ${targetLanguage}, Model: ${targetModel}`);
 
-  // Step 1: Fetch active sources
+  // Step 1: Cleanup posts older than 30 days (720h)
+  try {
+    await cleanupOldPosts(720);
+  } catch (err: any) {
+    console.warn('Auto cleanup warning:', err.message);
+  }
+
+  // Step 2: Load all active sources
   let sources: Source[] = [];
   try {
     sources = await getActiveSources();
   } catch (err: any) {
-    errors.push(`Failed to fetch sources: ${err.message}`);
+    errors.push(`Failed to load sources from database: ${err.message}`);
+    return {
+      success: false,
+      message: 'Failed to load sources from database.',
+      fetchedPostsCount: 0,
+      telegramSent: false,
+      whatsappSent: false,
+      errors,
+    };
   }
 
-  // Step 2: Ingest from all sources
-  let allNewPosts: Omit<RawPost, 'id' | 'created_at'>[] = [];
+  // Step 3: Fetch new posts from all sources
+  const allNewPosts: Omit<RawPost, 'id' | 'created_at'>[] = [];
   for (const source of sources) {
     try {
       if (source.type === 'x_account' || source.type === 'x_search') {
@@ -61,7 +77,7 @@ export async function runNewsDigestPipeline(options: RunPipelineOptions = {}): P
     }
   }
 
-  // Step 3: Insert raw posts to Supabase (deduped automatically by external_id)
+  // Step 3.1: Insert raw posts to Supabase (deduped automatically by external_id)
   let insertedCount = 0;
   if (allNewPosts.length > 0) {
     try {
@@ -73,7 +89,7 @@ export async function runNewsDigestPipeline(options: RunPipelineOptions = {}): P
 
   const newsAgeHours = options.newsAgeHours || 48;
   const cutoffTime = new Date(Date.now() - newsAgeHours * 60 * 60 * 1000).toISOString();
-
+  
   // Step 4: Retrieve unprocessed posts for AI summarization (within last 48h)
   let unprocessedPosts: RawPost[] = [];
   try {
@@ -85,11 +101,23 @@ export async function runNewsDigestPipeline(options: RunPipelineOptions = {}): P
   // Filter raw posts to guarantee they are within the 48-hour window
   const freshNewPosts = allNewPosts.filter((p) => !p.published_at || p.published_at >= cutoffTime);
 
-  // If no posts in DB, use whatever fresh posts we just fetched
-  const postsToSummarize: Array<{ author?: string; content: string; url?: string; published_at?: string }> = 
+  // Fallback: If no unprocessed posts (all already processed in previous runs), load most recent active posts from DB
+  let recentFallbackPosts: RawPost[] = [];
+  if (unprocessedPosts.length === 0 && freshNewPosts.length === 0) {
+    try {
+      recentFallbackPosts = await getRecentPosts(35, newsAgeHours);
+    } catch (err: any) {
+      errors.push(`Error loading recent fallback posts: ${err.message}`);
+    }
+  }
+
+  // If no posts in DB, use whatever fresh posts or fallback posts we have
+  const postsToSummarize: Array<{ id?: string; author?: string; content: string; url?: string; published_at?: string }> = 
     unprocessedPosts.length > 0 
       ? unprocessedPosts 
-      : freshNewPosts;
+      : freshNewPosts.length > 0
+      ? freshNewPosts
+      : recentFallbackPosts;
 
   if (postsToSummarize.length === 0) {
     return {
