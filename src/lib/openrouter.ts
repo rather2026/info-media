@@ -120,47 +120,54 @@ export async function generateNewsDigest({
     };
   }
 
-  // Format raw posts into a clean prompt context
+  // Format raw posts — source handle is embedded INSIDE the content so the AI cannot miss it
   const newsContext = posts
     .map((p, index) => {
-      const author = p.author ? `[المصدر/الكاتب: ${p.author}]` : '';
-      const sourceUrl = p.url ? `[الرابط: ${p.url}]` : '';
-      return `${index + 1}. ${author} ${sourceUrl} ${p.content}`;
+      const handle = p.author || 'مصدر مجهول';
+      // Append source at end of content text itself — not just as metadata
+      const contentWithSource = `${p.content.trim()} — ${handle}`;
+      return `[${index + 1}] ${contentWithSource}`;
     })
     .join('\n\n');
 
   const systemPrompt = `
-You are an elite, highly intelligent real-time multilingual news anchor and AI investigative summarizer.
-Your goal is to digest, aggregate, deduplicate, and synthesize raw tweets and articles from Arabic, French, and English sources.
+You are an elite multilingual news summarizer. Your STRICT job is to synthesize news from the Sahel region (Mali, Burkina Faso, Niger, Mauritania) in journalistic style.
 
-Structure rules:
-1. Synthesize and group related news rather than listing raw posts.
-2. Filter out spam, duplicates, trivial promotional posts, and retain only impactful, verified news facts.
-3. For Arabic summary (العربية): Use eloquent modern journalistic Arabic, clear bold headlines, bullet points (• or 🔹), relevant emojis.
-4. For French summary (Français): Use professional, crisp French with bullet points and clear key takeaways.
-5. Mandatory Source References: At the end of every bullet point or news item, explicitly cite the source name/handle, for example: [المصدر: @اسم_المصدر] or [Source: @Source_Name].
-6. Provide high readability formatted specifically for Telegram & WhatsApp messaging.
+ABSOLUTE RULES — NO EXCEPTIONS:
+1. Every single bullet point MUST end with the exact source attribution in brackets: [المصدر: @handle]
+2. The source handle is embedded at the end of each raw news item (after " — "). Use it EXACTLY as written.
+3. NEVER write a bullet without its source citation. A bullet without a source is INVALID.
+4. Group related news under thematic bold headings (** ... **).
+5. Use bullet points: 🔹 for main points, • for sub-points.
+6. No recommendations, no analysis, no conclusions paragraph.
 
-Output strictly valid JSON with this exact schema:
+EXAMPLE OF CORRECT OUTPUT FORMAT (summary_ar):
+🔹 اشتباكات بين قوات JNIM والجيش في مقاطعة كايا بعد هجوم على ثكنة عسكرية. [المصدر: @SahelAlerte]
+🔹 انحياز فصيل إمغاد إلى جبهة تحرير أزواد FLA. [المصدر: @Oumar_Alansari]
+
+EXAMPLE OF CORRECT OUTPUT FORMAT (summary_fr):
+🔹 Affrontements entre le JNIM et l'armée dans la province de Kaya après une attaque contre une caserne. [Source: @SahelAlerte]
+🔹 Une faction Imghad rejoint le Front de Libération de l'Azawad FLA. [Source: @Oumar_Alansari]
+
+Output ONLY valid JSON:
 {
-  "title": "A captivating, short headline summarizing the main theme of this digest",
-  "summary_ar": "The complete formatted Arabic digest ready to send to Telegram/WhatsApp. Include date/period, categorized bullet points with emojis and source citations at the end of each point.",
-  "summary_fr": "The complete formatted French digest ready for Telegram/WhatsApp with source citations.",
-  "summary_en": "The complete formatted English digest with source citations."
+  "title": "Short compelling headline",
+  "summary_ar": "Full Arabic summary — every 🔹 bullet MUST end with [المصدر: @handle]",
+  "summary_fr": "Full French summary — every 🔹 bullet MUST end with [Source: @handle]",
+  "summary_en": "Full English summary — every 🔹 bullet MUST end with [Source: @handle]"
 }
 `;
 
   const userPrompt = `
 Time Period: ${timeSlot}
-Total News Items to Analyze: ${posts.length}
-Preferred Delivery Language: ${language}
+Total raw news items: ${posts.length}
 
-Here is the raw news content collected:
+RAW NEWS ITEMS (each item ends with " — @source_handle"):
 ---
 ${newsContext}
 ---
 
-Generate the JSON digest now according to the system instructions with source references.
+Generate the JSON digest now. Remember: EVERY bullet point must end with [المصدر: @handle]. No exceptions.
 `;
 
   const response = await fetch(OPENROUTER_API_URL, {
