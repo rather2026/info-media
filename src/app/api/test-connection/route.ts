@@ -5,6 +5,9 @@ import { testXFetching } from '@/lib/fetchers/x-scraper';
 import { testTelegramConnection } from '@/lib/telegram';
 import { testWhatsAppConnection } from '@/lib/whatsapp';
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));

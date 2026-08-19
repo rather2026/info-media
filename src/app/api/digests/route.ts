@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getRecentDigests, getRecentLogs } from '@/lib/supabase';
 import { runNewsDigestPipeline } from '@/lib/summarizer';
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
+
 export async function GET() {
   try {
     const digests = await getRecentDigests(20);

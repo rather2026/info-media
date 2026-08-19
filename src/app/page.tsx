@@ -641,7 +641,13 @@ export default function Dashboard() {
                             ? currentPreviewDigest.summary_fr || currentPreviewDigest.summary_ar
                             : currentPreviewDigest.summary_en || currentPreviewDigest.summary_ar;
 
-                        if (!raw) return null;
+                        if (!raw) {
+                          return (
+                            <div className="py-6 text-center text-slate-400 font-mono text-xs">
+                              {currentPreviewDigest.title || 'لا توجد بيانات متاحة للعرض في هذا التقرير.'}
+                            </div>
+                          );
+                        }
 
                         // If the content looks like raw JSON (old failed parse stored as rawText),
                         // attempt to extract the correct field via regex
