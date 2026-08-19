@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { Source, RawPost, Digest, DeliveryLog, AppSettings } from './types';
 
 const defaultUrl = 'aHR0cHM6Ly9kZnZidGViendnbmpsbGJzZXl0eS5zdXBhYmFzZS5jbw==';
-const defaultKey = 'ZXlKaGJHY2lPaUpJVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SnBjeUk2SW1SbWRtSjBaV0o2ZDJkdWFrbHZZbk5sZVhSNUlpd2ljbTlzWlNJNklubGxjblpwWTJWZmNtOXNaU0lzSW1saGRDSTZNVGM0TnpBek9UWTRORHdpWlhoY0lqb3lNVEF5TmpFMU5qYzBmUS5sa1dXME9ZcXU3ckZtX21SLVp6WWJVX0JlMmVHT2RRcXBKR01ScEN3dXI4';
+const defaultKey = 'ZXlKaGJHY2lPaUpJVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SnBjM01pT2lKemRYQmhZbUZ6WlNJc0luSmxaaUk2SW1SbWRtSjBaV0o2ZDJkdWFteHNZbk5sZVhSNUlpd2ljbTlzWlNJNkluTmxjblpwWTJWZmNtOXNaU0lzSW1saGRDSTZNVGM0TnpBek9UWTNOQ3dpWlhod0lqb3lNVEF5TmpFMU5qYzBmUS5sa1dXME9ZcXU3ckZtX21SLVp6WWJVX0JlMmVHT2RRcXBKR01ScEN3dXI4';
 
 const decodeSafe = (b64: string) => (typeof Buffer !== 'undefined' ? Buffer.from(b64, 'base64').toString('utf-8') : '');
 
